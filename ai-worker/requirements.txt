@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pydantic
+sentence-transformers
+numpy
+scikit-learn
+requests
+openai
+
