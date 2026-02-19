@@ -99,7 +99,7 @@ services:
   ai-worker:
     build: ./ai-worker
     ports:
-      - "8000:8000"
+      - "18000:8000"
     env_file:
       - .env
     volumes:
@@ -110,7 +110,7 @@ services:
   mcp-server:
     build: ./mcp-server
     ports:
-      - "9000:9000"
+      - "19000:9000"
 
   postgres:
     image: postgres:15
@@ -120,7 +120,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     ports:
-      - "5432:5432"
+      - "15432:5432"
 ```
 
 ---
@@ -405,9 +405,9 @@ Make content meaningful so RAG visibly works.
 ```
 #!/bin/bash
 
-curl http://localhost:8000/health
+curl http://localhost:18000/health
 
-curl -X POST http://localhost:8000/v1/assist \
+curl -X POST http://localhost:18000/v1/assist \
 -H "Content-Type: application/json" \
 -d '{"message": "Analyze system performance and list docs", "mode": "openai"}'
 ```

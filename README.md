@@ -1,157 +1,179 @@
-# AI‑Agents‑Demo
+# AI-Agents-Demo
 
-A production‑style, dockerized AI Agent demo showcasing a FastAPI worker with local RAG (embeddings), multi‑LLM backends (OpenAI + Ollama), and an MCP‑style tool server — designed for clean local runs, VS Code development, and a simple smoke test.
+A dockerized AI-agent demo with a FastAPI worker, local RAG over Markdown docs, an MCP-style tool server, and two LLM backends (OpenAI + Ollama).
 
----
+## What this demonstrates
+- End-to-end local stack with `docker compose up --build`
+- Retrieval-Augmented Generation (RAG) from local knowledge-base files
+- Tool-augmented responses via MCP-style server calls
+- Runtime model/backend switching between OpenAI and Ollama
+- A safe default mode for reproducible demos
 
-## What This Demonstrates
-- Containerized AI micro‑stack you can run end‑to‑end with `docker compose up --build`.
-- Retrieval‑Augmented Generation over a local Markdown knowledge base.
-- Pluggable LLM backends: OpenAI (default) or Ollama.
-- MCP‑style tool calling via a lightweight FastAPI service.
-- A tidy repo layout that works well with VS Code.
+## Safe default mode behavior
+`/v1/assist` defaults to `mode: "auto"`.
 
----
+- If `OPENAI_API_KEY` is set: default resolved mode is `openai`
+- If `OPENAI_API_KEY` is missing: default resolved mode is `rag_only`
 
-## Architecture Overview
-- `ai-worker` (FastAPI, port 8000)
-  - `/health` — liveness probe
-  - `/v1/assist` — RAG + optional tool calls + LLM synthesis
-  - Mounts `ai-worker/data` for local Markdown knowledge
-  - Uses `sentence-transformers` (`all-MiniLM-L6-v2`) for embeddings
-- `mcp-server` (FastAPI, port 9000)
-  - `/tool` — MCP‑style endpoint supporting `system_info`
-  - Returns `platform`, `cpu_percent`, `memory_percent`
-- `postgres` (Port 5432)
-  - Placeholder for future persistence (pgvector, traces, etc.). Not required by the demo today.
+This keeps the demo usable in fresh clones without forcing cloud keys.
 
-Networking: Containers share a compose network; `ai-worker` calls the MCP server at `http://mcp-server:9000/tool`.
+## Architecture
+- `ai-worker` (FastAPI, container port `8000`, host port `18000`)
+  - `GET /health`
+  - `POST /v1/assist`
+  - Performs RAG retrieval, optional tool calls, and synthesis
+- `mcp-server` (FastAPI, container port `9000`, host port `19000`)
+  - `POST /tool`
+  - Includes `system_info` demo tool
+- `ollama` (Ollama, port `11434`)
+  - Local model runtime for offline-ish local inference
+- `ollama-init` (one-shot helper)
+  - Pulls `OLLAMA_MODEL` automatically on startup
+- `postgres` (container port `5432`, host port `15432`)
+  - Placeholder for future persistence/tracing
 
----
-
-## How RAG Works Here
-- All Markdown files in `ai-worker/data/knowledge_base/` are loaded at startup.
-- Entire documents are embedded with `all-MiniLM-L6-v2`.
-- Query embeddings are compared via cosine similarity.
-- Top‑K (default 3) results are returned with a 300‑char snippet for context.
-- The context is prepended to the user prompt for the LLM backend.
-
-You can add or update `.md` files in that directory and restart `ai-worker` to refresh the in‑memory index.
-
----
-
-## MCP‑Style Tools
-The `mcp-server` exposes a single example tool:
-- `system_info`: returns basic system telemetry to demonstrate tool‑augmented prompts.
-
-The `ai-worker` auto‑invokes:
-- `list_kb_files` if the user prompt contains “list docs”.
-- `system_info` if the user prompt contains “analyze system”.
-
-Tool calls are captured in a simple `tool_trace` array in the API response.
-
----
-
-## Getting Started
-
-1) Copy environment variables
-```
+## Quick start
+1. Copy env file
+```bash
 cp .env.example .env
 ```
-Edit `.env` as needed. Important variables:
-- `OPENAI_API_KEY` (required for OpenAI mode)
-- `OPENAI_MODEL` (e.g., `gpt-4o-mini`)
-- `OLLAMA_BASE_URL` (if using Ollama; e.g., `http://localhost:11434` or `http://ollama:11434`)
 
-2) Build and run
+2. Optional: set OpenAI key (if you want OpenAI mode)
+```bash
+# edit .env
+OPENAI_API_KEY=...
+OPENAI_MODEL=gpt-4o-mini
 ```
+
+3. Build and run
+```bash
 docker compose up --build
 ```
 
-3) Verify health
-```
-curl http://localhost:8000/health
+4. Health check
+```bash
+curl -sS http://localhost:18000/health | jq
 ```
 
----
+Host ports intentionally use `18000`, `19000`, and `15432` to reduce collisions with other local services that often bind to default ports.
 
-## Example Requests
+## Model and mode selection
+Request fields:
+- `mode`: `auto` | `openai` | `ollama` | `rag_only`
+- `model`: optional model override for selected backend
 
-OpenAI mode (requires `OPENAI_API_KEY`):
-```
-curl -X POST http://localhost:8000/v1/assist \
+Defaults:
+- OpenAI model from `OPENAI_MODEL`
+- Ollama model from `OLLAMA_MODEL` (default: `llama3.2:1b`)
+
+### Safe default request (recommended for demos)
+```bash
+curl -sS -X POST http://localhost:18000/v1/assist \
   -H "Content-Type: application/json" \
-  -d '{"message":"Analyze system performance and list docs","mode":"openai"}'
+  -d '{"message":"Analyze system performance and list docs","top_k":3}' | jq
 ```
 
-Ollama mode (requires a running Ollama with `llama3` model available):
-```
-curl -X POST http://localhost:8000/v1/assist \
+### Force OpenAI mode
+```bash
+curl -sS -X POST http://localhost:18000/v1/assist \
   -H "Content-Type: application/json" \
-  -d '{"message":"What does onboarding recommend for week 1?","mode":"ollama"}'
+  -d '{"message":"Summarize onboarding in 3 bullets","mode":"openai","model":"gpt-4o-mini"}' | jq
 ```
 
-Tip: To use a host‑running Ollama from inside Docker on macOS/Windows, set `OLLAMA_BASE_URL=http://host.docker.internal:11434` in `.env`.
-
----
-
-## Smoke Test
-
-After the stack is up:
+### Force Ollama mode
+```bash
+curl -sS -X POST http://localhost:18000/v1/assist \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Summarize onboarding in 3 bullets","mode":"ollama","model":"llama3.2:1b"}' | jq
 ```
+
+### Force deterministic fallback (no LLM calls)
+```bash
+curl -sS -X POST http://localhost:18000/v1/assist \
+  -H "Content-Type: application/json" \
+  -d '{"message":"Analyze system performance and list docs","mode":"rag_only"}' | jq
+```
+
+## Smoke tests
+After the stack is running:
+
+```bash
 ./scripts/smoke_test.sh
 ```
-This exercises `/health` and a sample `/v1/assist` call. If you haven’t set `OPENAI_API_KEY`, the request may fail — switch to `"mode":"ollama"` or set the key.
+- Uses safe default mode (`auto`) to avoid hard failures in fresh clones
 
----
-
-## Demo Flow (Live Presentation)
-- Introduce the architecture (3 services) and show `docker-compose.yml`.
-- Show the knowledge base in `ai-worker/data/knowledge_base/` and explain RAG.
-- Run `./scripts/smoke_test.sh` to confirm health and a basic assist call.
-- Prompt ideas:
-  - “List docs and analyze system performance” (triggers tool calls).
-  - “How do I run the stack locally?” (pulls from `onboarding.md`).
-  - “What’s the incident response template?” (pulls from `incident_template.md`).
-- Flip between `mode: "openai"` and `mode: "ollama"` to highlight backend portability.
-- Discuss extensions: chunked RAG, pgvector in Postgres, richer MCP tools.
-
----
-
-## Repository Layout
+```bash
+./scripts/smoke_test_openai.sh
 ```
+- Explicit OpenAI test (skips if `OPENAI_API_KEY` is not set)
+
+```bash
+./scripts/smoke_test_ollama.sh
+```
+- Explicit Ollama test
+- Ensures selected Ollama model is pulled before request
+
+These separate tests let you quickly swap back and forth between OpenAI and Ollama during demos.
+
+## "Something cool" demo prompts
+Use prompts that trigger both retrieval and tools:
+- `"Analyze system performance and list docs. Also summarize deployment process."`
+- `"List docs and call out incident-response risks."`
+
+You will see:
+- `retrieved` docs with similarity-ranked snippets
+- `tool_trace` entries (for `system_info` and KB listing)
+- `mode` and `model` used for the response
+
+## Why this is useful
+- Shows how to keep agent demos resilient when API credentials are absent
+- Demonstrates backend portability without changing business logic
+- Gives a practical pattern for combining RAG + tool calls + LLM synthesis
+- Helps teams prototype production agent patterns with reproducible local infra
+
+## Repository layout
+```text
 .
 ├── README.md
 ├── docker-compose.yml
 ├── .env.example
-├── .gitignore
 ├── ai-worker/
-│   ├── Dockerfile
-│   ├── requirements.txt
 │   ├── app/
 │   │   ├── main.py
-│   │   ├── rag.py
 │   │   ├── llm.py
+│   │   ├── rag.py
 │   │   ├── tools.py
 │   │   └── schemas.py
-│   └── data/
-│       └── knowledge_base/
-│           ├── onboarding.md
-│           ├── incident_template.md
-│           └── project_notes.md
+│   └── data/knowledge_base/
 ├── mcp-server/
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   └── server.py
 └── scripts/
-    └── smoke_test.sh
+    ├── smoke_test.sh
+    ├── smoke_test_openai.sh
+    └── smoke_test_ollama.sh
 ```
 
----
-
 ## Troubleshooting
-- Build takes a while: The first run downloads Python wheels and the embedding model.
-- 500 from `/v1/assist` on OpenAI mode: Ensure `OPENAI_API_KEY` and `OPENAI_MODEL` are set.
-- Ollama connection errors: Verify `OLLAMA_BASE_URL` is reachable from inside the container.
-- Missing `.env` error in compose: Ensure you created `.env` (see Getting Started).
+- `ollama_request_failed`: make sure compose stack is up and `ollama` is healthy
+- OpenAI 400 config errors: set `OPENAI_API_KEY` and `OPENAI_MODEL` in `.env`
+- First run is slow: embeddings/model downloads happen on initial startup
 
+## Next improvements (multi-agent + skills + MCP)
+1. Multi-agent coordinator service
+- Add an `agent-orchestrator` service that routes work to specialized agents (`research`, `planner`, `executor`) and merges outputs.
+- Persist per-agent traces in Postgres for replay/debugging.
+
+2. Tool/skill registry
+- Add a registry file for tools and skills with capability metadata (`input schema`, `cost`, `latency`, `risk level`).
+- Let the worker select tools dynamically based on user intent and policy.
+
+3. MCP server expansion
+- Split tools into multiple MCP servers (`filesystem`, `tickets`, `monitoring`, `knowledge`).
+- Use Docker Compose profiles to run only required MCP servers per scenario.
+
+4. Docker Desktop integration
+- Publish compose profiles and healthchecks so developers can toggle stacks visually in Docker Desktop.
+- Use Desktop extensions or local integrations for logs, traces, and container resource monitoring during demos.
+
+5. Safer production posture
+- Add auth between worker and MCP servers.
+- Add rate limits, request validation, and PII-safe logging policies.

@@ -1,9 +1,11 @@
+from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import BaseModel
-from typing import List, Dict
 
 class AssistRequest(BaseModel):
     message: str
-    mode: str = "openai"
+    mode: Literal["auto", "openai", "ollama", "rag_only"] = "auto"
+    model: Optional[str] = None
     top_k: int = 3
 
 class RetrievedDoc(BaseModel):
@@ -14,5 +16,8 @@ class RetrievedDoc(BaseModel):
 class AssistResponse(BaseModel):
     request_id: str
     retrieved: List[RetrievedDoc]
-    output: Dict
-
+    output: str
+    mode: str
+    requested_mode: str
+    model: Optional[str]
+    tool_trace: List[Dict[str, Any]]
