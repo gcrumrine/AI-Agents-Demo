@@ -9,6 +9,29 @@ A dockerized AI-agent demo with a FastAPI worker, local RAG over Markdown docs, 
 - Runtime model/backend switching between OpenAI and Ollama
 - A safe default mode for reproducible demos
 
+## Terms used in this repo
+- `RAG` = Retrieval-Augmented Generation: retrieve relevant local docs first, then ground the response with that context.
+- `MCP` = Model Context Protocol: a standardized way for agents/models to call tools and external capabilities.
+
+## You need these prereqs
+1. Docker with Compose support
+- macOS/Windows: install Docker Desktop: https://docs.docker.com/desktop/
+- Linux: install Docker Engine + Docker Compose plugin: https://docs.docker.com/engine/install/
+- Verify with `docker --version` and `docker compose version`
+
+2. Git
+- Install from https://git-scm.com/downloads
+- Verify with `git --version`
+
+3. `curl` and `jq` (for test commands)
+- macOS (Homebrew): `brew install curl jq`
+- Ubuntu/Debian: `sudo apt-get update && sudo apt-get install -y curl jq`
+- Verify with `curl --version` and `jq --version`
+
+4. Optional OpenAI API key (only for OpenAI mode)
+- Create API key: https://platform.openai.com/api-keys
+- If unset, safe default mode automatically falls back to `rag_only`
+
 ## Safe default mode behavior
 `/v1/assist` defaults to `mode: "auto"`.
 

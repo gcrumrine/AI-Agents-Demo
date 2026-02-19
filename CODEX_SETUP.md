@@ -8,9 +8,9 @@ Your task is to generate the full working repository for a production-style AI A
 
 - Dockerized architecture
 - FastAPI AI Worker
-- RAG (local embeddings)
+- RAG (Retrieval-Augmented Generation; local embeddings)
 - OpenAI + Ollama support
-- MCP-style tool server
+- MCP-style tool server (MCP = Model Context Protocol)
 - Clean structure for VSCode usage
 - Smoke test script
 - Example knowledge base docs
@@ -18,6 +18,24 @@ Your task is to generate the full working repository for a production-style AI A
 This must be fully runnable with:
 
 docker compose up --build
+
+---
+
+# You need these prereqs
+
+1. Docker + Compose
+- Install Docker Desktop (macOS/Windows): https://docs.docker.com/desktop/
+- Install Docker Engine + Compose plugin (Linux): https://docs.docker.com/engine/install/
+- Verify: `docker --version` and `docker compose version`
+
+2. Git
+- Install: https://git-scm.com/downloads
+- Verify: `git --version`
+
+3. curl + jq
+- macOS: `brew install curl jq`
+- Ubuntu/Debian: `sudo apt-get update && sudo apt-get install -y curl jq`
+- Verify: `curl --version` and `jq --version`
 
 ---
 
