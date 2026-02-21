@@ -9,7 +9,7 @@ Welcome to the AI Agents team! This document outlines the fastest way to become 
 
 ## Local Environment
 - Prereqs: Docker Desktop (or Docker Engine), `curl`.
-- Optional: Python 3.11 for running services locally without Docker.
+- Optional: Python 3.14 for running services locally without Docker.
 - IDE: VS Code with Python and Docker extensions.
 
 ## Services Overview
@@ -29,7 +29,7 @@ Welcome to the AI Agents team! This document outlines the fastest way to become 
 - The RAG component embeds full file text and returns ~300‑char snippets.
 
 ## Code Style
-- Python 3.11.
+- Python 3.14.
 - Keep modules small and readable.
 - Prefer explicit names and docstrings on non‑trivial functions.
 
